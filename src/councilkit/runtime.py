@@ -23,107 +23,18 @@ from .models import (
 from .modes import DEFAULT_MODE_SPEC
 from .modes.review import build_context_frame, build_synthesis_context, render_context_frame
 from .traces import write_trace_artifacts
-
-
-def _normalize_string_list(payload: Any, key: str, *, allow_empty: bool = False) -> list[str]:
-    if payload is None and allow_empty:
-        return []
-    if not isinstance(payload, list):
-        raise ValueError(f"{key} must be a list")
-    items = [str(item).strip() for item in payload if str(item).strip()]
-    if not items and not allow_empty:
-        raise ValueError(f"{key} must be a non-empty string list")
-    return items
+from .validation import (
+    normalize_runtime_turn_payload as _normalize_runtime_turn_payload,
+    normalize_synthesis_payload as _normalize_synthesis_payload,
+)
 
 
 def normalize_turn_payload(payload: dict[str, Any]) -> tuple[str, TurnResult]:
-    required_strings = ("message", "judgment", "tradeoff", "objection")
-    normalized: dict[str, Any] = {}
-    for key in required_strings:
-        if key not in payload:
-            raise TurnSlotMissingError(f"Skill payload missing key: {key}")
-        normalized[key] = str(payload[key]).strip()
-
-    try:
-        evidence = tuple(_normalize_string_list(payload.get("evidence"), "evidence"))
-        needs_verification = tuple(
-            _normalize_string_list(payload.get("needs_verification"), "needs_verification", allow_empty=True)
-        )
-    except ValueError as error:
-        raise TurnSlotMissingError(str(error)) from error
-    confidence = str(payload.get("confidence", "")).strip().lower()
-    if confidence not in {"high", "medium", "low"}:
-        raise TurnConfidenceInvalidError("Skill payload confidence must be high, medium, or low")
-
-    return normalized["message"], TurnResult(
-        judgment=normalized["judgment"],
-        evidence=evidence,
-        tradeoff=normalized["tradeoff"],
-        objection=normalized["objection"],
-        needs_verification=needs_verification,
-        confidence=confidence,
-    )
+    return _normalize_runtime_turn_payload(payload)
 
 
 def normalize_synthesis_payload(payload: dict[str, Any]) -> SynthesisResult:
-    try:
-        required_strings = ("title", "summary", "decision")
-        normalized: dict[str, Any] = {}
-        for key in required_strings:
-            value = str(payload.get(key, "")).strip()
-            if not value:
-                raise ValueError(f"Synthesis payload missing or empty key: {key}")
-            normalized[key] = value
-
-        key_decisions = tuple(_normalize_string_list(payload.get("key_decisions"), "key_decisions"))
-        next_steps = tuple(_normalize_string_list(payload.get("next_steps"), "next_steps"))
-        open_questions = tuple(_normalize_string_list(payload.get("open_questions"), "open_questions", allow_empty=True))
-
-        objections = payload.get("strongest_objections")
-        if not isinstance(objections, list):
-            raise ValueError("Synthesis payload strongest_objections must be a list")
-        normalized_objections: list[dict[str, str]] = []
-        for item in objections:
-            if not isinstance(item, dict):
-                raise ValueError("Synthesis payload strongest_objections entries must be objects")
-            obj = {
-                "skill": str(item.get("skill", "")).strip(),
-                "objection": str(item.get("objection", "")).strip(),
-                "severity": str(item.get("severity", "")).strip().lower(),
-            }
-            if not obj["skill"] or not obj["objection"] or obj["severity"] not in {"low", "medium", "high"}:
-                raise ValueError("Synthesis payload strongest_objections entries are invalid")
-            normalized_objections.append(obj)
-        if not normalized_objections:
-            raise ValueError("Synthesis payload strongest_objections must be non-empty")
-
-        skill_notes = payload.get("skill_notes")
-        if not isinstance(skill_notes, list) or not skill_notes:
-            raise ValueError("Synthesis payload skill_notes must be a non-empty list")
-        normalized_notes: list[dict[str, str]] = []
-        for item in skill_notes:
-            if not isinstance(item, dict):
-                raise ValueError("Synthesis payload skill_notes entries must be objects")
-            obj = {
-                "skill": str(item.get("skill", "")).strip(),
-                "note": str(item.get("note", "")).strip(),
-            }
-            if not obj["skill"] or not obj["note"]:
-                raise ValueError("Synthesis payload skill_notes entries are invalid")
-            normalized_notes.append(obj)
-
-        return SynthesisResult(
-            title=normalized["title"],
-            summary=normalized["summary"],
-            decision=normalized["decision"],
-            key_decisions=key_decisions,
-            strongest_objections=tuple(normalized_objections),
-            next_steps=next_steps,
-            open_questions=open_questions,
-            skill_notes=tuple(normalized_notes),
-        )
-    except ValueError as error:
-        raise SynthesisPayloadInvalidError(str(error)) from error
+    return _normalize_synthesis_payload(payload)
 
 
 def emit_turn(turn: TurnRecord, *, stage_rounds: int, stream: TextIO | None) -> None:

@@ -19,7 +19,7 @@ from .models import (
     TurnResult,
 )
 from .modes import DEFAULT_MODE_SPEC
-from .render import render_result, render_transcript
+from .render import render_debate, render_result, render_transcript
 
 
 def resolve_trace_file(trace_ref: Path) -> Path:
@@ -74,6 +74,7 @@ def write_trace_artifacts(
         encoding="utf-8",
     )
     (run_dir / "result.md").write_text(render_result(trace.task.prompt, trace.synthesis), encoding="utf-8")
+    (run_dir / "debate.md").write_text(render_debate(trace), encoding="utf-8")
     return run_dir
 
 

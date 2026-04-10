@@ -51,6 +51,9 @@ CouncilKit/
 │   ├── raw/                     # replayable raw traces
 │   └── distilled/               # same-shape distilled projections
 ├── src/councilkit/              # runtime code
+│   ├── app/                     # CLI-facing use-case orchestration
+│   ├── ingest/                  # external dispatch ingest internals
+│   └── validation/              # shared runtime/ingest payload validation
 ├── .codex/skills/               # optional Codex adapter symlink
 └── .claude/skills/              # optional Claude adapter symlink
 ```
@@ -61,6 +64,12 @@ Path roles:
 - `skills/`: canonical runtime skill root, and the identity truth for the local skill universe
 - `traces/`: runtime projections for replay, comparison, provenance, and eval
 - `.codex/` / `.claude/`: tool adapters only, not sources of truth
+
+Internal module boundaries:
+
+- `app/`: use-case orchestration for CLI workflows; keeps `cli.py` thin
+- `ingest/`: parse / validate / map / write internals for external harness payloads
+- `validation/`: shared turn / synthesis / contract / schedule checks reused by runtime and ingest
 
 ## What counts as a runtime skill
 
@@ -102,6 +111,11 @@ Each run writes:
 - `run.json`
 - `transcript.md`
 - `result.md`
+- `debate.md`
+
+`debate.md` is a human-facing projection that makes participant provenance, admission rationale,
+turn-level conflict, synthesis carry-over, and harness handoff visible without introducing a
+second semantic layer.
 
 `run.json` is a replay/comparison artifact, not a semantic charter.
 
@@ -264,7 +278,7 @@ python main.py \
 
 This is a preflight check only:
 
-- no `run.json` / `transcript.md` / `result.md` is written
+- no `run.json` / `transcript.md` / `result.md` / `debate.md` is written
 - the same schedule, slot, synthesis, and hash checks are reused from ingest
 - warnings surface as `pass_with_warning`; hard failures return `fail`
 - `expected_contract` exposes the canonical slot/synthesis requirements
@@ -276,7 +290,7 @@ This is a preflight check only:
 
 The validator accepts either a harness-style dispatch payload or an existing CouncilKit `run.json`.
 
-Ingest external harness dispatch output into CouncilKit artifacts (`run.json`, `transcript.md`, `result.md`):
+Ingest external harness dispatch output into CouncilKit artifacts (`run.json`, `transcript.md`, `result.md`, `debate.md`):
 
 ```bash
 python main.py \
@@ -387,6 +401,8 @@ This repo ships a checked-in hero demo fixture used for structural regression.
 - distilled trace: `traces/distilled/councilkit-hero-demo/`
 - fixed skill set: `fastapi`, `do-things-that-dont-scale`
 
+Each trace directory includes `debate.md` as the hero projection artifact.
+
 Run a fresh live session with the same brief and skill set:
 
 ```bash
@@ -416,6 +432,8 @@ This repo also ships a live-generated three-skill sample:
 - raw trace: `traces/raw/councilkit-runtime-triad/`
 - distilled trace: `traces/distilled/councilkit-runtime-triad/`
 - fixed skill set: `fastapi`, `langgraph`, `llama-index`
+
+Each trace directory includes `debate.md` beside the replay and synthesis artifacts.
 
 ## Distill a raw trace into a benchmark trace
 

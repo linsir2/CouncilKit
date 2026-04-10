@@ -116,6 +116,7 @@ class MainFlowTests(unittest.TestCase):
 
             self.assertTrue((run_dir / "transcript.md").exists())
             self.assertTrue((run_dir / "result.md").exists())
+            self.assertTrue((run_dir / "debate.md").exists())
             self.assertTrue((run_dir / "run.json").exists())
 
             payload = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
@@ -144,6 +145,13 @@ class MainFlowTests(unittest.TestCase):
             self.assertIn("## Key Decisions", result)
             self.assertIn("## Strongest Objections", result)
             self.assertIn("## Skill Notes", result)
+
+            debate = (run_dir / "debate.md").read_text(encoding="utf-8")
+            self.assertIn("## Participants & Provenance", debate)
+            self.assertIn("## Debate Map", debate)
+            self.assertIn("## Synthesis Delta", debate)
+            self.assertIn("## Harness Handoff", debate)
+            self.assertIn("- matched_terms:", debate)
 
     def test_run_records_runtime_payload_failure_instead_of_crashing(self) -> None:
         import main
@@ -1317,6 +1325,7 @@ class MainFlowTests(unittest.TestCase):
             self.assertTrue((run_dir / "run.json").exists())
             self.assertTrue((run_dir / "transcript.md").exists())
             self.assertTrue((run_dir / "result.md").exists())
+            self.assertTrue((run_dir / "debate.md").exists())
 
             payload = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
             self.assertEqual(payload["task"]["prompt"], "Imported harness run brief.")
@@ -1325,6 +1334,9 @@ class MainFlowTests(unittest.TestCase):
             self.assertEqual(payload["harness"]["selected_skill_slugs"], ["fastapi"])
             self.assertEqual([turn["stage"] for turn in payload["turns"]], ["survey", "review"])
             self.assertEqual(payload["synthesis"]["title"], "Imported synthesis")
+            debate = (run_dir / "debate.md").read_text(encoding="utf-8")
+            self.assertIn("selected_skill_slugs: fastapi", debate)
+            self.assertIn("handoff_path:", debate)
 
     def test_main_ingest_session_run_hash_guard_and_override(self) -> None:
         import main
@@ -2405,9 +2417,11 @@ class MainFlowTests(unittest.TestCase):
         self.assertTrue((raw_dir / "run.json").exists())
         self.assertTrue((raw_dir / "transcript.md").exists())
         self.assertTrue((raw_dir / "result.md").exists())
+        self.assertTrue((raw_dir / "debate.md").exists())
         self.assertTrue((distilled_dir / "run.json").exists())
         self.assertTrue((distilled_dir / "transcript.md").exists())
         self.assertTrue((distilled_dir / "result.md").exists())
+        self.assertTrue((distilled_dir / "debate.md").exists())
 
         raw = json.loads((raw_dir / "run.json").read_text(encoding="utf-8"))
         distilled = json.loads((distilled_dir / "run.json").read_text(encoding="utf-8"))
@@ -2503,6 +2517,7 @@ class MainFlowTests(unittest.TestCase):
             self.assertEqual(ingest_exit, 0)
             run_dir = Path(mocked_print_ingest.call_args_list[-1].args[0])
             self.assertTrue((run_dir / "run.json").exists())
+            self.assertTrue((run_dir / "debate.md").exists())
             payload = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
             self.assertEqual(payload["admission"]["status"], "accept")
             self.assertEqual(payload["harness"]["selected_skill_slugs"], ["fastapi", "do-things-that-dont-scale"])
@@ -2519,9 +2534,11 @@ class MainFlowTests(unittest.TestCase):
         self.assertTrue((raw_dir / "run.json").exists())
         self.assertTrue((raw_dir / "transcript.md").exists())
         self.assertTrue((raw_dir / "result.md").exists())
+        self.assertTrue((raw_dir / "debate.md").exists())
         self.assertTrue((distilled_dir / "run.json").exists())
         self.assertTrue((distilled_dir / "transcript.md").exists())
         self.assertTrue((distilled_dir / "result.md").exists())
+        self.assertTrue((distilled_dir / "debate.md").exists())
 
         raw = json.loads((raw_dir / "run.json").read_text(encoding="utf-8"))
         distilled = json.loads((distilled_dir / "run.json").read_text(encoding="utf-8"))
@@ -2685,6 +2702,7 @@ class MainFlowTests(unittest.TestCase):
             self.assertEqual(distilled_dir.name, "example-trace")
             self.assertTrue((distilled_dir / "transcript.md").exists())
             self.assertTrue((distilled_dir / "result.md").exists())
+            self.assertTrue((distilled_dir / "debate.md").exists())
 
             distilled = json.loads((distilled_dir / "run.json").read_text(encoding="utf-8"))
             self.assertEqual(distilled["source_kind"], "distilled")
@@ -2699,6 +2717,10 @@ class MainFlowTests(unittest.TestCase):
             self.assertLessEqual(len(distilled["synthesis"]["key_decisions"]), 3)
             self.assertLessEqual(len(distilled["synthesis"]["next_steps"]), 3)
             self.assertLessEqual(len(distilled["synthesis"]["open_questions"]), 2)
+            debate = (distilled_dir / "debate.md").read_text(encoding="utf-8")
+            self.assertIn("source_kind: distilled", debate)
+            self.assertIn("No admission metadata captured.", debate)
+            self.assertIn("missing-skill", debate)
 
 
 if __name__ == "__main__":

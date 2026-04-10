@@ -15,6 +15,12 @@ build/
 artifacts/
 traces/raw/*
 !traces/raw/.gitkeep
+!traces/raw/councilkit-hero-demo/
+traces/raw/councilkit-hero-demo/*
+!traces/raw/councilkit-hero-demo/debate.md
+!traces/raw/councilkit-runtime-triad/
+traces/raw/councilkit-runtime-triad/*
+!traces/raw/councilkit-runtime-triad/debate.md
 traces/derived/*
 !traces/derived/.gitkeep
 .DS_Store
@@ -23,3 +29,4 @@ traces/derived/*
 .coverage
 .coverage.*
 htmlcov/
+.omx/

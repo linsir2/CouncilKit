@@ -356,6 +356,7 @@ Ingest writes:
 - `run.json`
 - `transcript.md`
 - `result.md`
+- `debate.md`
 - `failure-events.jsonl` when applicable
 
 ## Stable contract boundaries

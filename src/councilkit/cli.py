@@ -4,7 +4,16 @@ import argparse
 import json
 from pathlib import Path
 
-from .admission import prepare_session
+from .app.distill import distill_traces
+from .app.failures import propose_redistill_payload, summarize_failures_payload
+from .app.harness_contracts import (
+    emit_dispatch_template_payload,
+    emit_harness_contract_payload,
+    emit_session_spec_payload,
+    verify_harness_contract_payload,
+)
+from .app.ingest import ingest_dispatch_run, validate_dispatch_run
+from .app.redistill import emit_redistill_worklist_payload, execute_redistill_worklist_payload
 from .constants import (
     DISTILLED_TRACE_ROOT,
     RAW_TRACE_ROOT,
@@ -13,25 +22,7 @@ from .constants import (
     REDISTILL_WORKLIST_ROOT,
     SKILL_ROOT,
 )
-from .dispatch_template import build_dispatch_template, load_dispatch_template_inputs
-from .failures import (
-    FailurePolicy,
-    propose_redistill_tickets,
-    read_failure_events,
-    read_redistill_tickets,
-    summarize_failure_events,
-    write_redistill_tickets,
-)
-from .harness_contract import build_harness_contract
-from .harness import load_harness_payload, validate_harness_contract
-from .harness_ingest import ingest_session_run, validate_session_run_payload
-from .loader import load_prompt, load_skill_specs
-from .models import SkillInstance
-from .modes import DEFAULT_MODE_SPEC
-from .redistill import build_redistill_work_items, write_redistill_work_items
-from .redistill import execute_redistill_work_items, read_redistill_work_items
 from .runtime import run
-from .session_spec import build_session_spec
 from .traces import distill_trace_artifacts
 
 
@@ -257,42 +248,46 @@ def main() -> int:
             "--emit-harness-contract, --verify-harness-contract, --emit-session-spec, --emit-dispatch-template, --validate-dispatch-payload, --ingest-session-run, --summarize-failures, --propose-redistill, --emit-redistill-worklist, --execute-redistill-worklist, and distill modes are mutually exclusive"
         )
 
+    def _resolve_repo_path(path_arg: str) -> Path:
+        candidate = Path(path_arg)
+        return candidate if candidate.is_absolute() else repo_root / candidate
+
+    def _emit_json(content: str, output_arg: str | None) -> None:
+        if output_arg:
+            output_path = Path(output_arg)
+            if not output_path.is_absolute():
+                output_path = repo_root / output_path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(content, encoding="utf-8")
+            print(output_path)
+        else:
+            print(content)
+
     if args.distill_from or args.distill_all:
         trace_output_root = output_root or (repo_root / DISTILLED_TRACE_ROOT)
-        if args.distill_all:
-            raw_root = repo_root / RAW_TRACE_ROOT
-            trace_refs = sorted(path for path in raw_root.iterdir() if path.is_dir())
-        else:
-            trace_ref = Path(args.distill_from)
-            if not trace_ref.is_absolute():
-                trace_ref = repo_root / trace_ref
-            trace_refs = [trace_ref]
-
-        for trace_ref in trace_refs:
-            print(distill_trace_artifacts(trace_ref, output_root=trace_output_root))
+        trace_ref = _resolve_repo_path(args.distill_from) if args.distill_from else None
+        for result in distill_traces(
+            repo_root=repo_root,
+            output_root=trace_output_root,
+            distill_from=trace_ref,
+            distill_all=args.distill_all,
+        ):
+            print(result)
         return 0
 
     if args.verify_harness_contract:
-        contract_ref = Path(args.verify_harness_contract)
-        if not contract_ref.is_absolute():
-            contract_ref = repo_root / contract_ref
-        harness, _ = load_harness_payload(contract_ref)
-        report = validate_harness_contract(
-            harness,
-            strict_hash=not args.ignore_hash_mismatch,
+        report = verify_harness_contract_payload(
             repo_root=repo_root,
-            contract_ref=contract_ref,
+            contract_ref=_resolve_repo_path(args.verify_harness_contract),
+            strict_hash=not args.ignore_hash_mismatch,
         )
         print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
         return 0 if report.status != "fail" else 2
 
     if args.ingest_session_run:
-        ingest_ref = Path(args.ingest_session_run)
-        if not ingest_ref.is_absolute():
-            ingest_ref = repo_root / ingest_ref
-        run_dir = ingest_session_run(
-            payload_ref=ingest_ref,
+        run_dir = ingest_dispatch_run(
             repo_root=repo_root,
+            payload_ref=_resolve_repo_path(args.ingest_session_run),
             output_root=output_root or (repo_root / RAW_TRACE_ROOT),
             directory_name=str(args.ingest_directory_name).strip() or None,
             strict_hash=not args.ignore_hash_mismatch,
@@ -301,12 +296,9 @@ def main() -> int:
         return 0
 
     if args.validate_dispatch_payload:
-        payload_ref = Path(args.validate_dispatch_payload)
-        if not payload_ref.is_absolute():
-            payload_ref = repo_root / payload_ref
-        report = validate_session_run_payload(
-            payload_ref=payload_ref,
+        report = validate_dispatch_run(
             repo_root=repo_root,
+            payload_ref=_resolve_repo_path(args.validate_dispatch_payload),
             strict_hash=not args.ignore_hash_mismatch,
         )
         print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
@@ -316,41 +308,21 @@ def main() -> int:
         failure_root = Path(args.failure_root) if args.failure_root else (repo_root / RAW_TRACE_ROOT)
         if not failure_root.is_absolute():
             failure_root = repo_root / failure_root
-        events = read_failure_events(failure_root, window_days=args.window_days)
-        summary = summarize_failure_events(events)
         if args.summarize_failures:
-            payload = {
-                "window_days": args.window_days,
-                "failure_root": str(failure_root),
-                "summary": summary,
-            }
+            payload = summarize_failures_payload(failure_root=failure_root, window_days=args.window_days)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0
 
-        policy = FailurePolicy(window_days=args.window_days, daily_cap=args.daily_cap)
         ticket_root = Path(args.ticket_root) if args.ticket_root else (repo_root / REDISTILL_TICKET_ROOT)
         if not ticket_root.is_absolute():
             ticket_root = repo_root / ticket_root
-        existing_tickets = read_redistill_tickets(ticket_root)
-        tickets = propose_redistill_tickets(
-            events,
-            policy=policy,
-            existing_tickets=existing_tickets,
+        payload = propose_redistill_payload(
+            failure_root=failure_root,
+            window_days=args.window_days,
+            daily_cap=args.daily_cap,
+            ticket_root=ticket_root,
+            dry_run=args.dry_run,
         )
-        ticket_path = None
-        if not args.dry_run:
-            ticket_path = write_redistill_tickets(ticket_root, tickets)
-        payload = {
-            "window_days": args.window_days,
-            "daily_cap": args.daily_cap,
-            "existing_ticket_count": len(existing_tickets),
-            "remaining_cap": max(args.daily_cap - len(existing_tickets), 0),
-            "event_count": len(events),
-            "ticket_count": len(tickets),
-            "ticket_path": str(ticket_path) if ticket_path is not None else None,
-            "tickets": tickets,
-            "summary": summary,
-        }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
@@ -358,29 +330,15 @@ def main() -> int:
         ticket_root = Path(args.ticket_root) if args.ticket_root else (repo_root / REDISTILL_TICKET_ROOT)
         if not ticket_root.is_absolute():
             ticket_root = repo_root / ticket_root
-        ticket_day = str(args.ticket_day).strip() if args.ticket_day else None
-        tickets = read_redistill_tickets(ticket_root, day=ticket_day)
-
         worklist_root = Path(args.worklist_root) if args.worklist_root else (repo_root / REDISTILL_WORKLIST_ROOT)
         if not worklist_root.is_absolute():
             worklist_root = repo_root / worklist_root
-
-        authoring_skill_file = repo_root / "authoring" / "project-incarnation" / "SKILL.md"
-        work_items = build_redistill_work_items(
-            tickets,
+        payload = emit_redistill_worklist_payload(
             repo_root=repo_root,
-            authoring_skill_file=authoring_skill_file,
+            ticket_root=ticket_root,
+            ticket_day=str(args.ticket_day).strip() if args.ticket_day else None,
+            worklist_root=worklist_root,
         )
-        worklist_path = write_redistill_work_items(worklist_root, work_items)
-        payload = {
-            "ticket_root": str(ticket_root),
-            "ticket_day": ticket_day or "today",
-            "ticket_count": len(tickets),
-            "worklist_root": str(worklist_root),
-            "work_item_count": len(work_items),
-            "worklist_path": str(worklist_path) if worklist_path is not None else None,
-            "work_items": work_items,
-        }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
@@ -388,26 +346,16 @@ def main() -> int:
         worklist_root = Path(args.worklist_root) if args.worklist_root else (repo_root / REDISTILL_WORKLIST_ROOT)
         if not worklist_root.is_absolute():
             worklist_root = repo_root / worklist_root
-        worklist_day = str(args.worklist_day).strip() if args.worklist_day else None
-        work_items = read_redistill_work_items(worklist_root, day=worklist_day)
-
         execution_root = Path(args.execution_root) if args.execution_root else (repo_root / REDISTILL_EXECUTION_ROOT)
         if not execution_root.is_absolute():
             execution_root = repo_root / execution_root
-
-        execution = execute_redistill_work_items(
-            work_items,
+        payload = execute_redistill_worklist_payload(
+            worklist_root=worklist_root,
+            worklist_day=str(args.worklist_day).strip() if args.worklist_day else None,
             execution_root=execution_root,
-            day=worklist_day,
             retry_failed=args.retry_failed,
             dry_run=args.dry_run,
         )
-        payload = {
-            "worklist_root": str(worklist_root),
-            "worklist_day": worklist_day or "today",
-            "execution_root": str(execution_root),
-            **execution,
-        }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
@@ -423,84 +371,40 @@ def main() -> int:
     if args.skills:
         selected_skills = [item.strip() for item in args.skills.split(",") if item.strip()]
 
-    def _contract_from_selection() -> tuple[object, object]:
-        final_prompt = load_prompt(repo_root, args.prompt, args.brief)
-        skill_specs = load_skill_specs(repo_root, skill_root, selected_skills)
-        admission = prepare_session(
-            skill_specs=skill_specs,
-            prompt=final_prompt,
-            explicit_skill_selection=selected_skills is not None,
-        )
-        selected_slugs = set(admission.selected_skills)
-        selected_specs = [spec for spec in skill_specs if spec.slug in selected_slugs]
-        skill_instances = tuple(
-            SkillInstance(spec=spec, instance_id=f"{spec.slug}-instance")
-            for spec in selected_specs
-        )
-        contract = build_harness_contract(
-            mode=DEFAULT_MODE_SPEC.name,
-            mode_spec=DEFAULT_MODE_SPEC,
-            skill_instances=skill_instances,
-            admission=admission,
-        )
-        return contract, admission
-
-    def _emit_json(content: str, output_arg: str | None) -> None:
-        if output_arg:
-            output_path = Path(output_arg)
-            if not output_path.is_absolute():
-                output_path = repo_root / output_path
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(content, encoding="utf-8")
-            print(output_path)
-        else:
-            print(content)
-
     if args.emit_harness_contract:
-        contract, admission = _contract_from_selection()
-        payload = {
-            "harness": contract.to_dict(),
-            "admission": admission.to_dict(),
-        }
+        payload = emit_harness_contract_payload(
+            repo_root=repo_root,
+            prompt_arg=args.prompt,
+            brief_arg=args.brief,
+            skill_root=skill_root,
+            selected_skills=selected_skills,
+        )
         content = json.dumps(payload, ensure_ascii=False, indent=2)
         _emit_json(content, args.contract_output)
         return 0
 
     if args.emit_session_spec:
-        if args.session_spec_from:
-            contract_ref = Path(args.session_spec_from)
-            if not contract_ref.is_absolute():
-                contract_ref = repo_root / contract_ref
-            contract, admission = load_harness_payload(contract_ref)
-        else:
-            contract, admission = _contract_from_selection()
-        payload = build_session_spec(harness=contract, admission=admission)
+        payload = emit_session_spec_payload(
+            repo_root=repo_root,
+            source_ref=_resolve_repo_path(args.session_spec_from) if args.session_spec_from else None,
+            prompt_arg=args.prompt,
+            brief_arg=args.brief,
+            skill_root=skill_root,
+            selected_skills=selected_skills,
+        )
         content = json.dumps(payload, ensure_ascii=False, indent=2)
         _emit_json(content, args.session_spec_output)
         return 0
 
     if args.emit_dispatch_template:
-        source_ref = None
-        if args.dispatch_template_from:
-            source_ref = Path(args.dispatch_template_from)
-            if not source_ref.is_absolute():
-                source_ref = repo_root / source_ref
-        else:
-            contract, admission = _contract_from_selection()
-        session_spec, prompt, template_project_root, shared_brief = load_dispatch_template_inputs(
-            source_ref=source_ref,
+        payload = emit_dispatch_template_payload(
             repo_root=repo_root,
+            source_ref=_resolve_repo_path(args.dispatch_template_from) if args.dispatch_template_from else None,
             project_root=project_root,
             prompt_arg=args.prompt,
             brief_arg=args.brief,
-            contract=contract if not args.dispatch_template_from else None,
-            admission=admission if not args.dispatch_template_from else None,
-        )
-        payload = build_dispatch_template(
-            session_spec=session_spec,
-            prompt=prompt,
-            project_root=template_project_root,
-            shared_brief=shared_brief,
+            skill_root=skill_root,
+            selected_skills=selected_skills,
         )
         content = json.dumps(payload, ensure_ascii=False, indent=2)
         _emit_json(content, args.dispatch_template_output)
