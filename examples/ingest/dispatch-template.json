@@ -1,0 +1,158 @@
+{
+  "template_version": "v1",
+  "prompt": "# CouncilKit Hero Demo Brief\n\nRun a bounded judgment session on the `CouncilKit` repository using the local skills:\n\n- `fastapi`\n- `do-things-that-dont-scale`\n\nFocus on one concrete question:\n\nHow should CouncilKit ship a first version that is both replayable and useful, without becoming a general multi-agent platform?\n\nRequirements:\n\n- preserve disagreement in synthesis\n- keep runtime responsibilities narrow\n- identify the sharpest technical objection\n- state one tradeoff that remains unresolved",
+  "project_root": ".",
+  "shared_brief": "Project root: /home/linsir365/projects/CouncilKit\nTop project files:\n- README.md\n- main.py\n- src/councilkit/cli.py\n- src/councilkit/runtime.py\n- src/councilkit/harness_ingest.py\n- src/councilkit/harness.py\n- src/councilkit/loader.py\n- src/councilkit/session_spec.py\n- authoring/project-incarnation/SKILL.md\n- docs/harness-contract.md\n- examples/briefs/councilkit-hero-demo.md\n- examples/briefs/councilkit-runtime-triad.md\n- src/councilkit/__init__.py\n- src/councilkit/admission.py\n- src/councilkit/constants.py\n- src/councilkit/dispatch_template.py\n- src/councilkit/errors.py\n- src/councilkit/failures.py\n- src/councilkit/harness_contract.py\n- src/councilkit/harness_runtime.py\n\nREADME excerpt:\n# CouncilKit\n\nCouncilKit is a bounded judgment session runtime for a managed local skill universe.\n\nIt does one thing:\n\nTake a set of distilled local `SKILL.md` files, load them as runtime participants, let them review a project brief, and produce replayable run artifacts plus a synthesis memo.\n\n## Core principles\n\n- `SKILL.md` is the only semantic source.\n- Runtime artifacts are projections, not second truth sources.\n- Modes are layered on top of a generic turn runtime.\n- The current baseline mode is `review`.\n- The current runtime is intentionally single-process, single-coordinator, and append-only.\n\n## Product definition\n\nCouncilKit is not trying to model the whole world.\n\nIt assumes:\n\n- `project-incarnation` or an equivalent authoring flow produces local subskills\n- those subskills live under `skills/`\n- the runtime operates over that managed local universe\n\nCouncilKit is responsible for:\n\n- deciding whether a bounded judgment session is runnable\n- running the session over a selected local skill set\n- preserving replayable traces and disagreement\n\nCouncilKit is not responsible for:\n\n- global skill discovery\n- world ontology or universal object classification\n- a second semantic",
+  "session_spec": {
+    "version": "v1",
+    "mode": "review",
+    "source_of_truth": "SKILL.md",
+    "prompt_contract": "SKILL.md acts as prompt, persona, and reasoning contract.",
+    "reduction_slots": [
+      "judgment",
+      "evidence",
+      "tradeoff",
+      "objection",
+      "needs_verification",
+      "confidence"
+    ],
+    "stages": [
+      {
+        "stage": "survey",
+        "rounds": 1
+      },
+      {
+        "stage": "review",
+        "rounds": 1
+      },
+      {
+        "stage": "synthesis",
+        "rounds": 0
+      }
+    ],
+    "participants": [
+      {
+        "slug": "fastapi",
+        "name": "FastAPI",
+        "skill_file": "skills/fastapi/SKILL.md",
+        "prompt_sha256": "f1c8350894aec6a0305cd381e8095b9ffe2470d844753c9956cc42344814af8a"
+      },
+      {
+        "slug": "do-things-that-dont-scale",
+        "name": "Do Things That Don't Scale",
+        "skill_file": "skills/do-things-that-dont-scale/SKILL.md",
+        "prompt_sha256": "4dc479aa2d4a38bf2d88c99b085d9ae45742cd4559122bed15323d6c28c7dbcd"
+      }
+    ],
+    "selected_skill_slugs": [
+      "fastapi",
+      "do-things-that-dont-scale"
+    ],
+    "loaded_skill_slugs": [
+      "fastapi",
+      "do-things-that-dont-scale"
+    ],
+    "turn_schedule": [
+      {
+        "turn_index": 1,
+        "stage": "survey",
+        "round_index": 1,
+        "skill_slug": "fastapi",
+        "skill_name": "FastAPI"
+      },
+      {
+        "turn_index": 2,
+        "stage": "survey",
+        "round_index": 1,
+        "skill_slug": "do-things-that-dont-scale",
+        "skill_name": "Do Things That Don't Scale"
+      },
+      {
+        "turn_index": 3,
+        "stage": "review",
+        "round_index": 1,
+        "skill_slug": "fastapi",
+        "skill_name": "FastAPI"
+      },
+      {
+        "turn_index": 4,
+        "stage": "review",
+        "round_index": 1,
+        "skill_slug": "do-things-that-dont-scale",
+        "skill_name": "Do Things That Don't Scale"
+      }
+    ],
+    "admission": {
+      "status": "accept",
+      "warnings": []
+    }
+  },
+  "turns": [
+    {
+      "turn_index": 1,
+      "stage": "survey",
+      "round_index": 1,
+      "skill_slug": "fastapi",
+      "skill_name": "FastAPI",
+      "message": "",
+      "judgment": "",
+      "evidence": [],
+      "tradeoff": "",
+      "objection": "",
+      "needs_verification": [],
+      "confidence": ""
+    },
+    {
+      "turn_index": 2,
+      "stage": "survey",
+      "round_index": 1,
+      "skill_slug": "do-things-that-dont-scale",
+      "skill_name": "Do Things That Don't Scale",
+      "message": "",
+      "judgment": "",
+      "evidence": [],
+      "tradeoff": "",
+      "objection": "",
+      "needs_verification": [],
+      "confidence": ""
+    },
+    {
+      "turn_index": 3,
+      "stage": "review",
+      "round_index": 1,
+      "skill_slug": "fastapi",
+      "skill_name": "FastAPI",
+      "message": "",
+      "judgment": "",
+      "evidence": [],
+      "tradeoff": "",
+      "objection": "",
+      "needs_verification": [],
+      "confidence": ""
+    },
+    {
+      "turn_index": 4,
+      "stage": "review",
+      "round_index": 1,
+      "skill_slug": "do-things-that-dont-scale",
+      "skill_name": "Do Things That Don't Scale",
+      "message": "",
+      "judgment": "",
+      "evidence": [],
+      "tradeoff": "",
+      "objection": "",
+      "needs_verification": [],
+      "confidence": ""
+    }
+  ],
+  "synthesis": {
+    "title": "",
+    "summary": "",
+    "decision": "",
+    "key_decisions": [],
+    "strongest_objections": [],
+    "next_steps": [],
+    "open_questions": [],
+    "skill_notes": []
+  }
+}

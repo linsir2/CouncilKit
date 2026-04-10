@@ -1,0 +1,84 @@
+{
+  "version": "v1",
+  "mode": "review",
+  "source_of_truth": "SKILL.md",
+  "prompt_contract": "SKILL.md acts as prompt, persona, and reasoning contract.",
+  "reduction_slots": [
+    "judgment",
+    "evidence",
+    "tradeoff",
+    "objection",
+    "needs_verification",
+    "confidence"
+  ],
+  "stages": [
+    {
+      "stage": "survey",
+      "rounds": 1
+    },
+    {
+      "stage": "review",
+      "rounds": 1
+    },
+    {
+      "stage": "synthesis",
+      "rounds": 0
+    }
+  ],
+  "participants": [
+    {
+      "slug": "fastapi",
+      "name": "FastAPI",
+      "skill_file": "skills/fastapi/SKILL.md",
+      "prompt_sha256": "f1c8350894aec6a0305cd381e8095b9ffe2470d844753c9956cc42344814af8a"
+    },
+    {
+      "slug": "do-things-that-dont-scale",
+      "name": "Do Things That Don't Scale",
+      "skill_file": "skills/do-things-that-dont-scale/SKILL.md",
+      "prompt_sha256": "4dc479aa2d4a38bf2d88c99b085d9ae45742cd4559122bed15323d6c28c7dbcd"
+    }
+  ],
+  "selected_skill_slugs": [
+    "fastapi",
+    "do-things-that-dont-scale"
+  ],
+  "loaded_skill_slugs": [
+    "fastapi",
+    "do-things-that-dont-scale"
+  ],
+  "turn_schedule": [
+    {
+      "turn_index": 1,
+      "stage": "survey",
+      "round_index": 1,
+      "skill_slug": "fastapi",
+      "skill_name": "FastAPI"
+    },
+    {
+      "turn_index": 2,
+      "stage": "survey",
+      "round_index": 1,
+      "skill_slug": "do-things-that-dont-scale",
+      "skill_name": "Do Things That Don't Scale"
+    },
+    {
+      "turn_index": 3,
+      "stage": "review",
+      "round_index": 1,
+      "skill_slug": "fastapi",
+      "skill_name": "FastAPI"
+    },
+    {
+      "turn_index": 4,
+      "stage": "review",
+      "round_index": 1,
+      "skill_slug": "do-things-that-dont-scale",
+      "skill_name": "Do Things That Don't Scale"
+    }
+  ],
+  "admission": {
+    "status": "accept",
+    "warnings": []
+  }
+}

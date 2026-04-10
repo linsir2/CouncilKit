@@ -13,12 +13,10 @@ build/
 *.pyd
 *.log
 artifacts/
-runs/*
-!runs/example/
-runs/example/*
-!runs/example/run.json
-!runs/example/result.md
-!runs/example/transcript.md
+traces/raw/*
+!traces/raw/.gitkeep
+traces/derived/*
+!traces/derived/.gitkeep
 .DS_Store
 .idea/
 .vscode/
